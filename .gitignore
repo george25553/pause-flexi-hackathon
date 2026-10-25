@@ -1,0 +1,7 @@
+build/fonts/
+video/frames/
+video/audio/
+video/*.mp4
+video/timeline.json
+video/frames.txt
+__pycache__/

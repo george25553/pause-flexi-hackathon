@@ -1,0 +1,491 @@
+<title>Pause Prototype</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/*FONTS*/
+/* Layout: two-pane console. Left = the customer's bank app with Pause inside it (phone). Right = what the engine,
+   the trusted contact and the bank's fraud desk see. Synthetic-data banner always visible. */
+:root{
+  --paper:#EEF2F0; --surface:#FFFFFF; --sunk:#F6F8F7; --ink:#0F1E1B; --muted:#56665F; --line:#D5DEDA;
+  --accent:#0B6B5F; --accent-ink:#FFFFFF; --amber:#B86E00; --red:#B3261E; --green:#25764A;
+  --amber-wash:#FBF1DF; --red-wash:#FBE7E5; --green-wash:#E3F3EA; --accent-wash:#DDEFEB;
+  --bezel:#0A110F; --phone:#F9FBFA;
+  --f-display:"Bricolage Grotesque","Noto Sans Georgian",ui-sans-serif,system-ui,sans-serif;
+  --f-body:"IBM Plex Sans","Noto Sans Georgian",ui-sans-serif,system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono","Noto Sans Georgian",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#0C1412; --surface:#131D1A; --sunk:#0F1816; --ink:#E4ECE8; --muted:#94A49D; --line:#24322E;
+  --accent:#49BCA9; --accent-ink:#06201B; --amber:#E9A23B; --red:#F0766B; --green:#5CC489;
+  --amber-wash:#2A2112; --red-wash:#2E1715; --green-wash:#132A1E; --accent-wash:#123029; --phone:#101917; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#0C1412; --surface:#131D1A; --sunk:#0F1816; --ink:#E4ECE8; --muted:#94A49D; --line:#24322E;
+  --accent:#49BCA9; --accent-ink:#06201B; --amber:#E9A23B; --red:#F0766B; --green:#5CC489;
+  --amber-wash:#2A2112; --red-wash:#2E1715; --green-wash:#132A1E; --accent-wash:#123029; --phone:#101917; color-scheme:dark}
+[hidden]{display:none!important}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+button{font:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.num{font-variant-numeric:tabular-nums}
+
+/* top bar */
+.top{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding-block:12px 10px}
+.brand{display:flex;align-items:baseline;gap:10px}
+.mark{font-family:var(--f-display);font-weight:800;font-size:26px;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
+.mark i{display:inline-flex;gap:3px}.mark i b{width:5px;height:18px;border-radius:2px;background:var(--accent)}
+.brand small{color:var(--muted)}
+.synth{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;color:var(--amber);background:var(--amber-wash);
+  padding:4px 9px;border-radius:999px}
+.spacer{flex:1}
+.ctrl{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:7px 12px;font-weight:500}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.danger{color:var(--red);border-color:color-mix(in srgb,var(--red) 40%,var(--line))}
+.btn.small{padding:4px 9px;font-size:12.5px}
+.steplabel{font-size:12.5px;color:var(--muted);max-width:260px}
+
+/* main grid */
+.main{display:grid;grid-template-columns:392px minmax(0,1fr);gap:20px;height:calc(100% - 64px);padding-bottom:14px}
+@media (max-width:980px){.main{grid-template-columns:minmax(0,1fr);height:auto}.phone{margin-inline:auto}}
+
+/* phone */
+.phone{width:100%;max-width:392px;height:100%;min-height:720px;max-height:820px;background:var(--bezel);border-radius:44px;padding:12px;position:relative}
+.screen{background:var(--phone);border-radius:34px;height:100%;overflow:hidden;position:relative;display:flex;flex-direction:column}
+.status{display:flex;justify-content:space-between;padding:12px 22px 4px;font-size:12.5px;font-weight:600}
+.call{margin:4px 12px 0;background:var(--red);color:#fff;border-radius:14px;padding:8px 12px;font-size:12.5px;display:flex;align-items:center;gap:8px}
+.call .dot{width:8px;height:8px;border-radius:50%;background:#fff;animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.2}}
+@media (prefers-reduced-motion:reduce){.call .dot{animation:none}}
+.app{flex:1;overflow:auto;padding:8px 16px 16px;display:flex;flex-direction:column;gap:12px}
+.bankbar{display:flex;justify-content:space-between;align-items:center}
+.bankbar b{font-family:var(--f-display);font-size:18px}
+.bankbar span{font-size:11px;color:var(--muted)}
+.balance{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px 16px}
+.balance .lbl{font-size:12px;color:var(--muted)}
+.balance .amt{font-family:var(--f-display);font-weight:700;font-size:30px;letter-spacing:-.02em}
+.tell{background:var(--accent-wash);border-radius:18px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.tell h3{margin:0;font-family:var(--f-display);font-size:15px;display:flex;align-items:center;gap:6px}
+.tell textarea{width:100%;min-height:74px;resize:none;border:1px solid var(--line);border-radius:12px;padding:9px 10px;font:inherit;font-size:13.5px;background:var(--surface);color:var(--ink)}
+.tell .row{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11.5px;color:var(--muted)}
+.commit{border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:10px 12px;display:grid;gap:6px}
+.commit .t{display:flex;justify-content:space-between;font-weight:600;font-size:13px}
+.meter{height:8px;border-radius:99px;background:var(--sunk);overflow:hidden;border:1px solid var(--line)}
+.meter i{display:block;height:100%;background:var(--accent);transition:width .5s}
+.meter.over i{background:var(--amber)}
+.commit small{color:var(--muted);font-size:11.5px}
+.txs h4{margin:4px 0 6px;font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.tx{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px;gap:8px}
+.tx:last-child{border-bottom:0}
+.tx small{display:block;color:var(--muted);font-size:11.5px}
+.pill{font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;white-space:nowrap}
+.pill.ok{background:var(--green-wash);color:var(--green)}.pill.warn{background:var(--amber-wash);color:var(--amber)}
+.pill.hold{background:var(--amber-wash);color:var(--amber)}.pill.stop{background:var(--red-wash);color:var(--red)}
+.pill.info{background:var(--accent-wash);color:var(--accent)}
+.sheet{position:absolute;inset:auto 0 0 0;background:var(--surface);border-radius:24px 24px 0 0;padding:18px 18px 22px;
+  box-shadow:0 -10px 40px rgba(0,0,0,.25);display:flex;flex-direction:column;gap:10px;max-height:88%;overflow:auto;
+  transform:translateY(0);transition:transform .35s ease}
+.sheet[hidden]{display:flex!important;transform:translateY(105%);pointer-events:none}
+.sheet h2{margin:0;font-family:var(--f-display);font-size:20px;letter-spacing:-.01em;text-wrap:balance}
+.sheet .kv{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:13px}
+.sheet .kv dt{color:var(--muted)}.sheet .kv dd{margin:0;font-weight:500}
+.sheet ul{margin:0;padding-left:18px;font-size:13px;display:grid;gap:4px}
+.sheet .acts{display:grid;gap:8px;margin-top:4px}
+.sheet .acts .btn{padding:10px;border-radius:12px}
+.band{border-radius:12px;padding:10px 12px;font-size:13px}
+.band.stop{background:var(--red-wash);color:var(--red)}.band.hold{background:var(--amber-wash);color:var(--amber)}
+.band.ok{background:var(--green-wash);color:var(--green)}.band.info{background:var(--accent-wash);color:var(--accent)}
+.big{font-family:var(--f-display);font-weight:700;font-size:28px}
+
+/* right panel */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:18px;display:flex;flex-direction:column;min-height:0;min-width:0}
+.tabs{display:flex;gap:2px;padding:8px 10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tab{border:0;background:none;padding:9px 12px;color:var(--muted);font-weight:600;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab[aria-selected="true"]{color:var(--ink);border-color:var(--accent)}
+.tab .count{font-size:11px;background:var(--red);color:#fff;border-radius:99px;padding:1px 6px;margin-left:4px}
+.pane{flex:1;overflow:auto;padding:14px 16px;min-height:0}
+.pane[hidden]{display:none}
+.empty{color:var(--muted);padding:20px 4px;max-width:60ch}
+.card{border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:grid;gap:10px;margin-bottom:12px;background:var(--surface)}
+.card.fresh{animation:fresh 1.2s ease}
+@keyframes fresh{from{background:var(--accent-wash)}to{background:var(--surface)}}
+@media (prefers-reduced-motion:reduce){.card.fresh{animation:none}}
+.card header{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.card header h3{margin:0;font-size:14px;font-family:var(--f-display);font-weight:700}
+.eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.cols{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:14px}
+@media (max-width:1200px){.cols{grid-template-columns:minmax(0,1fr)}}
+.src{font-size:13.5px;background:var(--sunk);border-radius:10px;padding:8px 10px}
+.src mark{background:var(--amber-wash);color:var(--ink);border-radius:4px;padding:0 2px;box-shadow:inset 0 -2px 0 var(--amber)}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:11.5px}
+.bars{display:grid;gap:4px;font-size:12px}
+.bar{display:grid;grid-template-columns:minmax(0,1fr) 120px 48px;gap:8px;align-items:center}
+.bar .tr{height:8px;background:var(--sunk);border-radius:99px;position:relative;overflow:hidden}
+.bar .tr i{position:absolute;inset:0 auto 0 0;background:var(--accent);border-radius:99px}
+.bar.neg .tr i{background:var(--muted)}
+.bar .v{text-align:right}
+.gauge{position:relative;height:14px;border-radius:99px;background:linear-gradient(90deg,var(--green-wash) 0 30%,var(--amber-wash) 30% 85%,var(--red-wash) 85%);border:1px solid var(--line)}
+.gauge .tick{position:absolute;top:-3px;bottom:-3px;width:1px;background:var(--muted)}
+.gauge .needle{position:absolute;top:-5px;width:4px;height:22px;border-radius:2px;background:var(--ink);transform:translateX(-2px);transition:left .6s}
+.gscale{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);position:relative;height:14px}
+.gscale span{position:absolute;transform:translateX(-50%)}
+.rules{display:grid;gap:4px;font-size:12.5px;margin:0;padding:0;list-style:none}
+.rules li{display:flex;gap:8px}.rules li b{min-width:16px}
+.ok-t{color:var(--green)}.warn-t{color:var(--amber)}.stop-t{color:var(--red)}.mut{color:var(--muted)}
+.luka{border:2px dashed var(--accent)}
+.note{font-size:13px;display:grid;gap:4px;background:var(--sunk);border-radius:10px;padding:10px 12px}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.form label{display:grid;gap:4px;font-size:12px;color:var(--muted)}
+.form input,.form select{font:inherit;font-size:13px;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+.chk{display:flex!important;align-items:center;gap:6px;grid-template-columns:none!important}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.kpi{background:var(--sunk);border-radius:12px;padding:10px 12px}
+.kpi b{display:block;font-family:var(--f-display);font-size:22px}
+.kpi span{font-size:12px;color:var(--muted)}
+.hash{font-size:11.5px;color:var(--muted)}
+.caption{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 18px;border-radius:12px;
+  font-family:var(--f-display);font-weight:600;font-size:18px;max-width:80vw;text-align:center;z-index:20;box-shadow:0 8px 30px rgba(0,0,0,.3)}
+.caption small{display:block;font-family:var(--f-body);font-weight:500;font-size:12px;opacity:.75;letter-spacing:.08em;text-transform:uppercase}
+</style>
+
+<div class="top">
+  <div class="brand"><div class="mark"><i><b></b><b></b></i>Pause</div><small>AI payment guardian · prototype by team Flexi</small></div>
+  <span class="synth" title="All people, merchants, accounts and amounts are fictional">Synthetic data only</span>
+  <div class="spacer"></div>
+  <div class="ctrl">
+    <span class="steplabel" id="stepLabel">Demo: 12 guided steps. Or type your own commitment and use “Try it”.</span>
+    <button class="btn primary" id="nextStep">Run next demo step</button>
+    <button class="btn" id="resetBtn">Reset</button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="phone" aria-label="Customer's bank app with Pause">
+    <div class="screen">
+      <div class="status"><span class="mono" id="clock">22:40</span><span>Sat 24 Oct · 5G</span></div>
+      <div class="call" id="callBanner" hidden><span class="dot"></span><span><b>On a call</b> · “National Bank of Georgia” · <span class="mono" id="callTimer">04:12</span></span></div>
+      <div class="app">
+        <div class="bankbar"><b>Your bank</b><span>Pause built in</span></div>
+        <div class="balance"><div class="lbl">Available balance</div><div class="amt num"><span id="bal">4,400</span> <small style="font-size:16px">GEL</small></div></div>
+        <div class="tell">
+          <h3>Tell Pause what you want to stick to</h3>
+          <label for="intent" class="mut" style="font-size:12px">Write it like you'd tell a friend. English or Georgian.</label>
+          <textarea id="intent" placeholder="e.g. No betting this week. / ამაღამ მაქსიმუმ 80 ლარი ბარებში"></textarea>
+          <div class="row"><span>Runs on this phone. Nothing is sent to a server.</span><button class="btn primary small" id="compileBtn">Make it a rule</button></div>
+        </div>
+        <div id="commitList"></div>
+        <div class="txs"><h4>Recent activity</h4><div id="txList"></div></div>
+      </div>
+
+      <div class="sheet" id="sheet" hidden aria-live="polite"></div>
+    </div>
+  </div>
+
+  <section class="panel" aria-label="Engine and bank view">
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" data-tab="trace" aria-selected="true">Live reasoning</button>
+      <button class="tab" role="tab" data-tab="desk" aria-selected="false">Bank fraud desk <span class="count" id="caseCount" hidden>0</span></button>
+      <button class="tab" role="tab" data-tab="audit" aria-selected="false">Audit log</button>
+      <button class="tab" role="tab" data-tab="model" aria-selected="false">Model card</button>
+      <button class="tab" role="tab" data-tab="try" aria-selected="false">Try it</button>
+    </div>
+    <div class="pane" id="pane-trace"><div id="trace"><p class="empty">Every decision Pause makes shows up here: what it read, which signals mattered, which rule fired, and what happened. Start with “Run next demo step”, or write a commitment on the phone.</p></div></div>
+    <div class="pane" id="pane-desk" hidden><div id="desk"><p class="empty">No cases yet. Payments with a scam probability of 0.85 or more are held here for a human analyst. Pause never releases or rejects them on its own.</p></div></div>
+    <div class="pane" id="pane-audit" hidden>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+        <button class="btn small" id="verifyBtn">Verify hash chain</button>
+        <button class="btn small danger" id="tamperBtn">Simulate tampering</button>
+        <span id="verifyOut" class="mono" style="font-size:12.5px"></span>
+      </div>
+      <div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Time</th><th>Actor</th><th>Event</th><th>Details</th><th>Hash</th></tr></thead><tbody id="auditBody"></tbody></table></div>
+    </div>
+    <div class="pane" id="pane-model" hidden><div id="modelCard"></div></div>
+    <div class="pane" id="pane-try" hidden>
+      <div class="card"><header><h3>Send a test payment through Pause</h3><span class="pill info">synthetic</span></header>
+        <form class="form" id="tryForm">
+          <label for="tPayee">Recipient<input id="tPayee" value="Levan K."></label>
+          <label for="tType">Recipient type<select id="tType"><option value="individual">Private person</option><option value="merchant">Merchant</option></select></label>
+          <label for="tAmount">Amount, GEL<input id="tAmount" type="number" min="1" value="1200"></label>
+          <label for="tCat">Category<select id="tCat"><option>p2p_transfers</option><option>bars_nightlife</option><option>gambling</option><option>crypto</option><option>online_shopping</option><option>food_delivery</option><option>transport</option><option>groceries</option><option>pharmacy</option></select></label>
+          <label for="tRef">Reference<input id="tRef" value="urgent loan cancellation fee"></label>
+          <label for="tAge">Recipient account age, days<input id="tAge" type="number" min="0" value="20"></label>
+          <label for="tCountry">Country<select id="tCountry"><option>GE</option><option>TR</option><option>AE</option><option>CY</option></select></label>
+          <label for="tTime">Time<input id="tTime" type="time" value="14:10"></label>
+          <label class="chk" for="tCall"><input id="tCall" type="checkbox"> Phone call active</label>
+          <label class="chk" for="tDev"><input id="tDev" type="checkbox"> New device / password reset</label>
+          <label class="chk" for="tFail"><input id="tFail" type="checkbox"> Simulate model outage</label>
+          <div style="display:flex;align-items:end"><button class="btn primary" type="submit">Run through Pause</button></div>
+        </form>
+      </div>
+      <p class="mut" style="font-size:12.5px;max-width:70ch">The result appears in “Live reasoning” and on the phone. Commitments you write on the phone apply here too. Essentials (transport, groceries, pharmacy, utilities) are never blocked by a commitment, but the scam model still checks them.</p>
+    </div>
+  </section>
+</div>
+<div class="caption" id="caption" hidden></div>
+
+<script>/*MODELS*/</script>
+<script>/*ENGINE*/</script>
+<script>/*SCENARIOS*/</script>
+<script>
+(function(){
+"use strict";
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt = (n) => Number(n).toLocaleString("en-US", {maximumFractionDigits: 0});
+const T = (d) => d.toLocaleTimeString("en-GB", {hour: "2-digit", minute: "2-digit"});
+const CAT = Pause.CAT_LABEL, ACT = Pause.ACTIONS, MODELS = window.PAUSE_MODELS;
+let clock, E, profile, txs, pendingHold, balance, stepIdx;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function init(){
+  clock = new Date("2026-10-24T22:40:00+04:00");
+  profile = JSON.parse(JSON.stringify(PauseDemo.profile)); profile.recentTimes = [];
+  E = Pause.createEngine(MODELS, {now: () => clock});
+  balance = profile.balance; pendingHold = null; stepIdx = 0;
+  txs = [{payee: "Vake Corner Market", amount: 23.4, t: "Today 18:02", st: "ok", lbl: "Groceries"},
+         {payee: "Gym Pulse", amount: 65, t: "Today 09:15", st: "ok", lbl: "Sport"},
+         {payee: "Cafe Rioni", amount: 11, t: "Yesterday", st: "ok", lbl: "Coffee"}];
+  $("#trace").innerHTML = '<p class="empty">Every decision Pause makes shows up here: what it read, which signals mattered, which rule fired, and what happened. Start with “Run next demo step”, or write a commitment on the phone.</p>';
+  $("#desk").innerHTML = '<p class="empty">No cases yet. Payments with a scam probability of 0.85 or more are held here for a human analyst. Pause never releases or rejects them on its own.</p>';
+  $("#intent").value = ""; $("#callBanner").hidden = true; closeSheet(); $("#verifyOut").textContent = "";
+  $("#caseCount").hidden = true; setStepLabel(); renderPhone(); renderAudit(); renderModelCard(); tab("trace");
+}
+function setClock(iso){ clock = new Date(iso); $("#clock").textContent = T(clock); }
+function setStepLabel(){ const s = STEPS[stepIdx]; $("#stepLabel").textContent = s ? `Step ${stepIdx+1}/${STEPS.length}: ${s.label}` : "Demo complete. Reset to run it again."; $("#nextStep").disabled = !s; }
+
+// ---------- phone ----------
+function renderPhone(){
+  $("#bal").textContent = fmt(balance);
+  $("#commitList").innerHTML = E.state.commitments.filter(c => c.active && clock <= new Date(c.window.end)).map(c => {
+    const pct = Math.min(100, (c.spent / Math.max(c.cap_gel, 1)) * 100);
+    return `<div class="commit"><div class="t"><span>${c.cap_gel === 0 ? "Blocked" : "Max " + fmt(c.cap_gel) + " GEL"} · ${esc(c.window.label)}</span><span class="pill info">${c.id}</span></div>
+      <div class="meter ${pct >= 80 ? "over" : ""}"><i style="width:${pct}%"></i></div>
+      <small>${fmt(c.spent)} of ${fmt(c.cap_gel)} GEL used · ${esc(c.scope.map(s => CAT[s] || s).join(", "))} · exceptions: ${c.override.mode === "trusted_contact" ? esc(c.override.trusted_contact) + " approves" : "none until it ends"}</small></div>`;
+  }).join("");
+  $("#txList").innerHTML = txs.slice(0, 6).map(t => `<div class="tx"><div>${esc(t.payee)}<small>${esc(t.t)} · ${esc(t.lbl)}</small></div><div style="text-align:right" class="num">−${fmt(t.amount)} GEL<br><span class="pill ${t.st}">${t.stl || (t.st === "ok" ? "Paid" : "")}</span></div></div>`).join("");
+}
+function openSheet(html){ const s = $("#sheet"); s.innerHTML = html; s.hidden = false; }
+function closeSheet(){ $("#sheet").hidden = true; }
+
+// ---------- commitments ----------
+function compile(text){
+  const r = E.parseCommitment(text, profile);
+  traceCompile(r);
+  const p = r.policy, ok = r.issues.length === 0;
+  openSheet(`<div class="eyebrow">Here's the rule I understood</div><h2>${p.cap_gel === 0 ? "Block" : "Max " + fmt(p.cap_gel) + " GEL"}, ${esc(p.window.label)}</h2>
+    <dl class="kv"><dt>Applies to</dt><dd>${esc(p.scope.map(s => CAT[s] || s).join(", "))}${p.context_categories.length && p.scope[0] === "all" ? ` <span class="mut">(you mentioned ${esc(p.context_categories.map(c => CAT[c]).join(", ").toLowerCase())})</span>` : ""}</dd>
+    <dt>Ends</dt><dd>${new Date(p.window.end).toLocaleString("en-GB", {weekday: "short", hour: "2-digit", minute: "2-digit"})}</dd>
+    <dt>Going over</dt><dd>${p.override.mode === "trusted_contact" ? esc(p.override.trusted_contact) + " has to approve" : "Not possible until it ends"}</dd>
+    <dt>Always allowed</dt><dd>Taxi and transport, pharmacy, groceries, utilities</dd></dl>
+    ${ok ? `<div class="band info">Nothing is active until you confirm. You can end it early with ${esc(p.override.trusted_contact || "a 30-minute wait")}.</div>` : `<div class="band stop">${r.issues.map(esc).join("<br>")}</div>`}
+    <div class="acts">${ok ? `<button class="btn primary" id="activateBtn">Activate rule</button>` : ""}<button class="btn" id="editBtn">Edit</button></div>`);
+  const a = $("#activateBtn"); if (a) a.onclick = () => activate(p);
+  $("#editBtn").onclick = closeSheet;
+  return r;
+}
+function activate(p){ E.activateCommitment(p); closeSheet(); renderPhone(); renderAudit(); flashTrace(`<div class="band ok">Commitment ${p.id} is active until ${T(new Date(p.window.end))}. Logged in the audit trail.</div>`); }
+
+// ---------- payments ----------
+function checkout(pay, ctx = {}){
+  openSheet(`<div class="eyebrow">${pay.payeeType === "individual" ? "Transfer" : "Card payment"}</div><h2>${esc(pay.payee)}</h2>
+    <div class="big num">${fmt(pay.amount)} GEL</div>
+    <dl class="kv">${pay.reference ? `<dt>Reference</dt><dd>${esc(pay.reference)}</dd>` : ""}<dt>Category</dt><dd>${esc(CAT[pay.category] || pay.category.replace("_", " "))}</dd></dl>
+    <div class="acts"><button class="btn primary" id="payBtn">Pay ${fmt(pay.amount)} GEL</button></div>`);
+  $("#payBtn").onclick = () => runPayment(pay, ctx);
+}
+function runPayment(pay, ctx = {}){
+  const t0 = performance.now();
+  const d = E.decide(Object.assign({}, pay, {time: clock}), profile, ctx);
+  d.ms = (performance.now() - t0).toFixed(1);
+  profile.recentTimes.push(new Date(clock));
+  traceDecision(pay, d); renderAudit();
+  const reasons = d.reasons.map(r => `<li>${esc(r)}</li>`).join("");
+  if (d.action === "ALLOW"){
+    balance -= pay.amount; if (!profile.knownPayees.includes(pay.payee)) profile.knownPayees.push(pay.payee);
+    txs.unshift({payee: pay.payee, amount: pay.amount, t: "Today " + T(clock), st: "ok", lbl: CAT[pay.category] || pay.category.replace("_", " ")});
+    openSheet(`<div class="band ok"><b>Paid.</b> ${fmt(pay.amount)} GEL to ${esc(pay.payee)}.</div>${d.essential && E.state.commitments.some(c => c.active && clock <= new Date(c.window.end)) ? `<div class="mut" style="font-size:12.5px">Transport is essential, so your commitment never blocks it. Get home safe.</div>` : ""}<div class="acts"><button class="btn" id="doneBtn">Done</button></div>`);
+    $("#doneBtn").onclick = closeSheet;
+  } else if (d.action === "COMMITMENT_HOLD"){
+    pendingHold = {pay, d};
+    openSheet(`<div class="eyebrow">Your rule ${d.commitment}</div><h2>You asked me to stop you here.</h2>
+      <div class="band hold">${reasons.replace(/<\/?li>/g, (m) => m === "<li>" ? "" : "<br>")}</div>
+      <div class="mut" style="font-size:12.5px">You wrote this rule at ${T(new Date(E.state.commitments.find(c => c.id === d.commitment).window.start))}, before going out.</div>
+      <div class="acts"><button class="btn primary" id="askBtn">Ask ${esc(d.override.trusted_contact || "your contact")} to approve</button><button class="btn" id="waitBtn">Wait until it ends</button><button class="btn" id="cancelBtn">Cancel payment</button></div>`);
+    $("#askBtn").onclick = askLuka; $("#cancelBtn").onclick = () => { cancelled(pay, "Cancelled"); }; $("#waitBtn").onclick = () => cancelled(pay, "Postponed");
+  } else if (d.action === "NUDGE" || d.action === "COOL_OFF"){
+    openSheet(`<div class="eyebrow">${d.action === "NUDGE" ? "Quick check" : "30-minute cool-off"}</div><h2>${d.action === "NUDGE" ? "This looks like a common scam pattern." : "Let's wait 30 minutes on this one."}</h2>
+      <ul>${reasons}</ul>
+      <div class="band hold">${/prepay|deposit|iphone|წინასწარ|ჯავშ/i.test(pay.reference || "") ? "Sellers who ask for a prepayment by transfer to a private account are behind most marketplace scams. Pay on delivery or through a protected checkout if you can." : "Scams depend on you acting fast. If anyone is pressuring you right now, stop and call your bank on the number on your card."}</div>
+      <div class="acts"><button class="btn" id="cancelBtn">Cancel payment</button><button class="btn" id="anywayBtn">${d.action === "NUDGE" ? "I know this seller, pay" : "Remind me in 30 minutes"}</button></div>`);
+    $("#cancelBtn").onclick = () => { E.resolve("CUSTOMER_DECISION", {payee: pay.payee, amount: pay.amount}, "cancelled", "customer"); cancelled(pay, "Cancelled"); };
+    $("#anywayBtn").onclick = () => { E.resolve("CUSTOMER_DECISION", {payee: pay.payee, amount: pay.amount}, "override_paid", "customer"); balance -= pay.amount; txs.unshift({payee: pay.payee, amount: pay.amount, t: "Today " + T(clock), st: "warn", stl: "Paid after check", lbl: "Transfer"}); closeSheet(); renderPhone(); renderAudit(); };
+  } else if (d.action === "BANK_REVIEW"){
+    $("#caseCount").hidden = false; $("#caseCount").textContent = E.state.cases.filter(c => c.status === "open").length;
+    openSheet(`<div class="eyebrow stop-t">Payment paused for your safety</div><h2>Hang up. This looks like a scam.</h2>
+      <div class="band stop"><b>The National Bank of Georgia and your bank never ask you to move money to a “safe account”.</b> Nobody is allowed to tell you to keep this secret.</div>
+      <ul>${reasons}</ul>
+      <div class="mut" style="font-size:12.5px">Your ${fmt(pay.amount)} GEL has not left your account. A fraud specialist at your bank is reviewing it (case ${d.caseId}).</div>
+      <div class="acts"><button class="btn primary" id="hangBtn">Hang up and call my bank</button><button class="btn" id="cancelBtn">Cancel the transfer</button></div>`);
+    $("#hangBtn").onclick = () => { $("#callBanner").hidden = true; E.resolve("CUSTOMER_DECISION", {case: d.caseId}, "ended_call", "customer"); renderAudit(); closeSheet(); };
+    $("#cancelBtn").onclick = () => { E.resolve("CUSTOMER_DECISION", {case: d.caseId}, "cancelled", "customer"); cancelled(pay, "Cancelled"); };
+    renderDesk();
+  }
+  renderPhone(); return d;
+}
+function cancelled(pay, lbl){ txs.unshift({payee: pay.payee, amount: pay.amount, t: "Today " + T(clock), st: lbl === "Cancelled" ? "stop" : "hold", stl: lbl, lbl: "Not paid"}); closeSheet(); renderPhone(); renderAudit(); }
+function askLuka(){
+  const {pay, d} = pendingHold; const who = d.override.trusted_contact || "Luka";
+  E.log("TRUSTED_CONTACT_REQUEST", {to: who, commitment: d.commitment, payee: pay.payee, amount: pay.amount}, "customer"); renderAudit();
+  openSheet(`<div class="eyebrow">Waiting</div><h2>Asked ${esc(who)}.</h2><div class="band info">${esc(who)} sees the amount, where, and your rule. Nothing else.</div>`);
+  flashTrace(`<div class="card luka fresh"><header><h3>${esc(who)}'s phone</h3><span class="pill hold">Approval request</span></header>
+    <div>Nino wants to spend <b>${fmt(pay.amount)} GEL at ${esc(pay.payee)}</b> at ${T(clock)}. Her rule ${d.commitment}: max 100 GEL until 10:00. She has 16 GEL left.</div>
+    <div style="display:flex;gap:8px"><button class="btn" id="lukaYes">Approve once</button><button class="btn primary" id="lukaNo">Decline</button></div></div>`, true);
+  $("#lukaYes").onclick = () => lukaDecide(true); $("#lukaNo").onclick = () => lukaDecide(false);
+}
+function lukaDecide(yes){
+  const {pay, d} = pendingHold; const who = d.override.trusted_contact || "Luka";
+  E.resolve("TRUSTED_CONTACT_DECISION", {commitment: d.commitment, amount: pay.amount}, yes ? "approved" : "declined", who.toLowerCase() + " (trusted contact)");
+  document.querySelectorAll("#lukaYes,#lukaNo").forEach(b => b.disabled = true);
+  if (yes){ balance -= pay.amount; txs.unshift({payee: pay.payee, amount: pay.amount, t: "Today " + T(clock), st: "warn", stl: "Approved by " + who, lbl: "Nightlife"}); closeSheet(); }
+  else { txs.unshift({payee: pay.payee, amount: pay.amount, t: "Today " + T(clock), st: "hold", stl: "Declined by " + who, lbl: "Not paid"});
+    openSheet(`<div class="band hold"><b>${esc(who)} declined.</b> “Go home, Nino. Taxi's on me.”</div><div class="mut" style="font-size:12.5px">Your 120 GEL stays in your account. Taxi rides are still allowed.</div><div class="acts"><button class="btn" id="doneBtn">OK</button></div>`);
+    $("#doneBtn").onclick = closeSheet; }
+  pendingHold = null; renderPhone(); renderAudit();
+}
+
+// ---------- trace panel ----------
+function flashTrace(html, raw){ const box = $("#trace"); if (box.querySelector(".empty")) box.innerHTML = ""; const div = document.createElement("div"); div.innerHTML = raw ? html : `<div class="card fresh">${html}</div>`; box.prepend(div.firstElementChild); $("#pane-trace").scrollTop = 0; }
+function traceCompile(r){
+  const p = r.policy; let src = esc(p.source_text);
+  for (const ev of r.evidence.filter(Boolean).sort((a, b) => b.length - a.length)){ const re = new RegExp(ev.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"); src = src.replace(re, (m) => `<mark>${m}</mark>`); }
+  const probs = Object.entries(r.catProbs).sort((a, b) => b[1] - a[1]);
+  flashTrace(`<header><h3>Commitment compiler</h3><span class="pill ${r.issues.length ? "stop" : "ok"}">${r.issues.length ? "Needs a fix" : "Valid · waiting for user"}</span></header>
+    <div class="src">${src}</div>
+    <div class="cols"><div><div class="eyebrow">Structured rule (what gets enforced)</div>
+      <pre class="mono" style="margin:6px 0 0;font-size:11.5px;background:var(--sunk);padding:8px 10px;border-radius:10px;overflow:auto">${esc(JSON.stringify({id: p.id, type: p.type, cap_gel: p.cap_gel, scope: p.scope, window: {end: p.window.end, label: p.window.label}, override: p.override, essentials_exempt: p.essentials_exempt}, null, 1))}</pre></div>
+    <div><div class="eyebrow">Category model (on-device NLP)</div><div class="bars" style="margin-top:6px">${probs.map(([c, v]) => `<div class="bar"><span>${esc(CAT[c])}</span><span class="tr"><i style="width:${(v * 100).toFixed(0)}%"></i></span><span class="v mono">${v.toFixed(2)}</span></div>`).join("")}</div>
+      <div class="eyebrow" style="margin-top:10px">Safety checks</div><ul class="rules" style="margin-top:4px">
+      <li><b class="${p.cap_gel !== null ? "ok-t" : "stop-t"}">${p.cap_gel !== null ? "✓" : "✕"}</b>Amount found</li>
+      <li><b class="ok-t">✓</b>Window ≤ 31 days, hard locks ≤ 72 h</li><li><b class="ok-t">✓</b>Essentials exempt (taxi, pharmacy, groceries, utilities)</li>
+      <li><b class="ok-t">✓</b>User must confirm before it's active</li>${r.issues.map(i => `<li><b class="stop-t">✕</b>${esc(i)}</li>`).join("")}</ul>
+      <div class="mut" style="font-size:12px;margin-top:6px">Parse confidence ${r.confidence.toFixed(2)}. The model only proposes the rule. A fixed policy engine enforces it.</div></div></div>`);
+}
+function gauge(p){ const th = MODELS.payment_risk.thresholds;
+  return `<div class="gauge">${[th.nudge, th.cool_off, th.bank_review].map(t => `<span class="tick" style="left:${t * 100}%"></span>`).join("")}<span class="needle" style="left:${(p * 100).toFixed(1)}%"></span></div>
+  <div class="gscale"><span style="left:0;transform:none">0 allow</span><span style="left:30%">0.30 nudge</span><span style="left:60%">0.60 cool-off</span><span style="left:85%">0.85 human</span></div>`; }
+function traceDecision(pay, d){
+  const a = ACT[d.action]; const maxC = Math.max(...d.contrib.map(c => Math.abs(c.contribution)), 1);
+  const comm = E.state.commitments.filter(c => c.active && new Date(c.window.start) <= clock && clock <= new Date(c.window.end));
+  const rules = [];
+  rules.push([d.p >= 0.85 ? "stop-t" : d.p >= 0.3 ? "warn-t" : "ok-t", d.p >= 0.85 ? "!" : d.p >= 0.3 ? "!" : "✓", `Scam probability ${d.p.toFixed(3)} ${d.p >= 0.85 ? "≥ 0.85 → hold for human analyst" : d.p >= 0.6 ? "≥ 0.60 → cool-off" : d.p >= 0.3 ? "≥ 0.30 → nudge with reasons" : "< 0.30"}`]);
+  if (!comm.length) rules.push(["mut", "–", "No active commitments"]);
+  for (const c of comm){
+    if (d.essential) rules.push(["ok-t", "✓", `${c.id}: essential category, exempt`]);
+    else { const after = c.spent + (d.action === "ALLOW" ? 0 : pay.amount); const before = d.action === "ALLOW" ? c.spent - pay.amount : c.spent;
+      rules.push(d.commitment === c.id ? ["warn-t", "!", `${c.id}: ${fmt(before)} + ${fmt(pay.amount)} = ${fmt(before + pay.amount)} GEL > cap ${fmt(c.cap_gel)} → hold, needs ${c.override.trusted_contact || "expiry"}`]
+        : ["ok-t", "✓", `${c.id}: ${fmt(before)} + ${fmt(pay.amount)} = ${fmt(before + pay.amount)} GEL ≤ cap ${fmt(c.cap_gel)}`]); }
+  }
+  if (d.fallback) rules.unshift(["warn-t", "!", "Risk model unavailable → rules-only fallback (never auto-allow)"]);
+  flashTrace(`<header><h3>${esc(pay.payee)} · <span class="num">${fmt(pay.amount)} GEL</span> · ${T(clock)}</h3><span class="pill ${a.tone}">${a.label}</span></header>
+    <div class="cols"><div><div class="eyebrow">Risk model</div><div style="margin:8px 0 2px">${gauge(d.p)}</div>
+      <div class="eyebrow" style="margin-top:12px">Why: contribution of each signal</div>
+      <div class="bars" style="margin-top:6px">${d.contrib.slice(0, 7).map(c => `<div class="bar ${c.contribution < 0.4 ? "neg" : ""}"><span>${esc(c.label)}</span><span class="tr"><i style="width:${Math.max(0, c.contribution / maxC * 100).toFixed(0)}%"></i></span><span class="v mono">${c.contribution >= 0 ? "+" : ""}${c.contribution.toFixed(2)}</span></div>`).join("") || '<span class="mut">No model output (fallback)</span>'}</div></div>
+    <div><div class="eyebrow">Policy engine (deterministic)</div><ul class="rules" style="margin-top:6px">${rules.map(r => `<li><b class="${r[0]}">${r[1]}</b><span>${esc(r[2])}</span></li>`).join("")}</ul>
+      <div class="eyebrow" style="margin-top:12px">Outcome</div><div style="margin-top:4px;font-size:13px"><b class="${a.tone === "ok" ? "ok-t" : a.tone === "stop" ? "stop-t" : "warn-t"}">${a.label}</b>${d.caseId ? ` · case ${d.caseId} opened for the fraud desk` : ""}</div>
+      <div class="hash mono" style="margin-top:8px">model ${esc(d.fallback ? "FALLBACK_RULES" : MODELS.version)} · on-device · ${d.ms} ms · logged #${E.state.audit.length}</div></div></div>`);
+}
+
+// ---------- fraud desk ----------
+function renderDesk(){
+  if (!E.state.cases.length) return;
+  $("#desk").innerHTML = E.state.cases.slice().reverse().map(k => `<div class="card"><header><h3>Case ${k.id} · ${esc(k.typology)}</h3>
+    <span class="pill ${k.status === "open" ? "stop" : k.status === "released" ? "ok" : "hold"}">${k.status === "open" ? "Waiting for analyst" : k.status.replace(/_/g, " ")}</span></header>
+    <div class="kpis"><div class="kpi"><b class="num">${fmt(k.payment.amount)} GEL</b><span>held, not sent</span></div><div class="kpi"><b class="mono">${k.risk.toFixed(3)}</b><span>scam probability</span></div><div class="kpi"><b>${T(k.opened)}</b><span>opened</span></div></div>
+    <div><div class="eyebrow">Case note, written from the model's evidence</div><div class="note" style="margin-top:6px">${k.note.map(l => `<div>${esc(l)}</div>`).join("")}</div></div>
+    <div class="cols"><div><div class="eyebrow">Top signals</div><div class="bars" style="margin-top:6px">${k.contrib.slice(0, 5).map(c => `<div class="bar"><span>${esc(c.label)}</span><span class="tr"><i style="width:${Math.max(0, c.contribution / k.contrib[0].contribution * 100).toFixed(0)}%"></i></span><span class="v mono">+${c.contribution.toFixed(2)}</span></div>`).join("")}</div></div>
+    <div><div class="eyebrow">Recommended next steps</div><ul class="rules" style="margin-top:6px">${k.recommended.map(r => `<li><b class="mut">→</b><span>${esc(r)}</span></li>`).join("")}</ul></div></div>
+    ${k.status === "open" ? `<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-case="${k.id}" data-out="released">Release payment</button><button class="btn primary" data-case="${k.id}" data-out="held_customer_contacted">Keep held, call customer</button><button class="btn danger" data-case="${k.id}" data-out="confirmed_scam_mule_reported">Confirm scam, report recipient</button></div>` : `<div class="mut" style="font-size:12.5px">Decided by analyst T. Gelashvili (synthetic) · logged in the audit trail</div>`}
+    <div class="hash">Analyst decides. Pause cannot release or reject a held payment by itself.</div></div>`).join("");
+  document.querySelectorAll("#desk [data-case]").forEach(b => b.onclick = () => analyst(b.dataset.case, b.dataset.out));
+  $("#caseCount").textContent = E.state.cases.filter(c => c.status === "open").length; $("#caseCount").hidden = !E.state.cases.some(c => c.status === "open");
+}
+function analyst(id, out){ E.resolve("ANALYST_DECISION", id, out, "analyst t.gelashvili"); renderDesk(); renderAudit(); }
+
+// ---------- audit ----------
+function renderAudit(){
+  $("#auditBody").innerHTML = E.state.audit.slice().reverse().map(e => `<tr><td class="mono">${e.n}</td><td class="mono">${T(new Date(e.ts))}</td><td>${esc(e.actor)}</td><td class="mono">${esc(e.event)}</td>
+    <td style="font-size:12px">${esc(summ(e))}</td><td class="mono hash">${e.hash.slice(0, 12)}…</td></tr>`).join("") || `<tr><td colspan="6" class="mut">Empty. Every rule, decision and human action is appended here with a SHA-256 hash of the previous entry.</td></tr>`;
+}
+function summ(e){ const d = e.data;
+  if (e.event === "PAYMENT_DECISION") return `${d.payee} ${fmt(d.amount)} GEL → ${d.action} (p=${d.risk})${d.commitment ? " " + d.commitment : ""}${d.case ? " " + d.case : ""}`;
+  if (e.event === "COMMITMENT_ACTIVATED") return `${d.commitment}: cap ${d.cap_gel} GEL, ${d.window.label}, override ${d.override.mode}`;
+  return Object.entries(d).map(([k, v]) => k + "=" + (typeof v === "object" ? JSON.stringify(v) : v)).join(" ");
+}
+$("#verifyBtn").onclick = () => { const v = E.verifyChain(); $("#verifyOut").innerHTML = v.ok ? `<span class="ok-t">✓ Chain intact · ${v.entries} entries</span>` : `<span class="stop-t">✕ Chain broken at entry #${v.brokenAt}: a record was changed after it was written</span>`; };
+$("#tamperBtn").onclick = () => { const e = E.state.audit.find(x => x.event === "PAYMENT_DECISION"); if (!e) { $("#verifyOut").textContent = "Make a payment first."; return; } e.data.amount = 1; renderAudit(); $("#verifyBtn").click(); };
+
+// ---------- model card ----------
+function renderModelCard(){
+  const m = MODELS.model_card, r = m.payment_risk, f = m.fairness_by_age_band, ratio = m.fairness_summary.max_min_ratio_any_friction;
+  const fr = Object.entries(f); const maxF = Math.max(...fr.map(([, v]) => v.fpr_any_friction_pct));
+  $("#modelCard").innerHTML = `<div class="card"><header><h3>Payment risk model · ${esc(m.version)}</h3><span class="pill hold">Synthetic validation</span></header>
+    <div class="kpis"><div class="kpi"><b class="mono">${r.roc_auc}</b><span>ROC AUC (held-out)</span></div><div class="kpi"><b class="mono">${r.pr_auc}</b><span>PR AUC, 5% scam rate</span></div>
+    <div class="kpi"><b class="mono">${r.thresholds.bank_review.precision}</b><span>precision at human-review threshold</span></div><div class="kpi"><b class="mono">${r.thresholds.nudge.legit_payments_flagged_pct}%</b><span>legit payments that see any friction</span></div></div>
+    <div style="overflow-x:auto"><table><thead><tr><th>Level</th><th>Threshold</th><th>Precision</th><th>Recall</th><th>Legit payments affected</th></tr></thead><tbody>
+    ${Object.entries(r.thresholds).map(([k, v]) => `<tr><td>${{nudge: "Nudge", cool_off: "Cool-off", bank_review: "Human review"}[k]}</td><td class="mono">${v.threshold}</td><td class="mono">${v.precision}</td><td class="mono">${v.recall}</td><td class="mono">${v.legit_payments_flagged_pct}%</td></tr>`).join("")}</tbody></table></div></div>
+    <div class="card"><header><h3>Fairness check: friction by age band</h3><span class="pill ${ratio > 1.5 ? "hold" : "ok"}">${ratio > 1.5 ? "Flagged for review" : "Within limit"}</span></header>
+    <div class="mut" style="font-size:12.5px">Age is not a model input. We still measure whether one age group gets stopped more often than another. Limit: no band above 1.5× another.</div>
+    <div class="bars">${fr.map(([b, v]) => `<div class="bar"><span>${b} · ${fmt(v.legit_payments)} legit payments</span><span class="tr"><i style="width:${(v.fpr_any_friction_pct / maxF * 100).toFixed(0)}%"></i></span><span class="v mono">${v.fpr_any_friction_pct}%</span></div>`).join("")}</div>
+    ${ratio > 1.5 ? `<div class="band hold">Ratio ${ratio}×. Customers over 60 make more transfers to private people and pay while on the phone more often, so they see more checks. This is not auto-corrected: threshold changes need sign-off from the bank's model-risk team.</div>` : ""}</div>
+    <div class="card"><header><h3>Inputs and limits</h3></header><div class="cols"><div><div class="eyebrow">Learned weights</div><div class="bars" style="margin-top:6px">${Object.entries(m.coefficients).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<div class="bar"><span>${esc(MODELS.payment_risk.features.find(f => f.key === k).label)}</span><span class="tr"><i style="width:${(v / 4.2 * 100).toFixed(0)}%"></i></span><span class="v mono">${v}</span></div>`).join("")}</div></div>
+    <div><div class="eyebrow">Never used as inputs</div><p style="font-size:13px;margin:6px 0">${m.excluded_inputs.join(", ")}</p><div class="eyebrow">Known limitations</div><ul class="rules" style="margin-top:6px">${m.limitations.map(l => `<li><b class="mut">·</b><span>${esc(l)}</span></li>`).join("")}</ul>
+    <p class="mut" style="font-size:12px">Three on-device models: scam-language classifier (EN/KA), commitment category classifier, payment risk model. Trained in ml/train.py, ported to JavaScript and checked for parity against scikit-learn.</p></div></div></div>`;
+}
+
+// ---------- tabs ----------
+function tab(name){ document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", t.dataset.tab === name)); document.querySelectorAll(".pane").forEach(p => p.hidden = p.id !== "pane-" + name); }
+document.querySelectorAll(".tab").forEach(t => t.onclick = () => tab(t.dataset.tab));
+
+// ---------- free-form controls ----------
+$("#compileBtn").onclick = () => { const v = $("#intent").value.trim(); if (v) { tab("trace"); compile(v); } else $("#intent").focus(); };
+$("#tryForm").addEventListener("submit", async (ev) => { ev.preventDefault();
+  const [h, m] = $("#tTime").value.split(":").map(Number); const t = new Date(clock); t.setHours(h, m, 0, 0); if (t < clock) t.setDate(t.getDate() + 1); setClock(t.toISOString());
+  const pay = {payee: $("#tPayee").value || "Recipient", payeeType: $("#tType").value, amount: Math.max(1, +$("#tAmount").value || 1), category: $("#tCat").value, country: $("#tCountry").value, reference: $("#tRef").value, payeeAccountAgeDays: +$("#tAge").value};
+  $("#callBanner").hidden = !$("#tCall").checked; tab("trace");
+  runPayment(pay, {callActive: $("#tCall").checked, newDevice: $("#tDev").checked, simulateModelFailure: $("#tFail").checked});
+});
+$("#resetBtn").onclick = init;
+
+// ---------- guided demo (also used to record the demo video) ----------
+async function typeInto(el, text, cps = 38){ el.value = ""; el.focus(); for (const ch of text){ el.value += ch; await sleep(1000 / cps); } }
+const S = PauseDemo.scenarios;
+async function pay(step, opts = {}){ setClock(step.time); if (step.ctx && step.ctx.callActive) $("#callBanner").hidden = false;
+  checkout(step.payment, step.ctx || {}); await sleep(opts.view ?? 900); $("#payBtn").click(); return E.state.audit[E.state.audit.length - 1]; }
+const STEPS = [
+  {label: "Write a commitment in plain words", run: async () => { tab("trace"); await typeInto($("#intent"), S.commitmentText); await sleep(300); $("#compileBtn").click(); }},
+  {label: "Confirm the rule", run: async () => { $("#activateBtn") ? $("#activateBtn").click() : null; }},
+  {label: "23:12 · Bar Nine, 38 GEL", run: async () => pay(S.nightOut[0])},
+  {label: "00:31 · Cocktail bar, 46 GEL", run: async () => { closeSheet(); await sleep(300); return pay(S.nightOut[1]); }},
+  {label: "01:47 · Club, 120 GEL (over the cap)", run: async () => { closeSheet(); await sleep(300); return pay(S.nightOut[2]); }},
+  {label: "Ask Luka, Luka declines", run: async () => { $("#askBtn").click(); await sleep(1600); $("#lukaNo").click(); }},
+  {label: "02:20 · Taxi home (essential)", run: async () => { closeSheet(); await sleep(300); return pay(S.nightOut[3]); }},
+  {label: "12:05 · Marketplace prepayment", run: async () => { closeSheet(); await sleep(300); return pay(S.scam[0]); }},
+  {label: "Customer cancels the prepayment", run: async () => { $("#cancelBtn").click(); }},
+  {label: "13:42 · “NBG” caller asks for a 3,000 GEL transfer", run: async () => { closeSheet(); setClock(S.scam[1].time); $("#callBanner").hidden = false; await sleep(1200); return pay(S.scam[1], {view: 1400}); }},
+  {label: "Fraud desk: analyst reviews the case", run: async () => { tab("desk"); await sleep(2500); const b = document.querySelector('#desk [data-out="held_customer_contacted"]'); if (b) b.click(); }},
+  {label: "Audit log: verify the hash chain", run: async () => { tab("audit"); await sleep(1200); $("#verifyBtn").click(); }},
+];
+let running = false;
+$("#nextStep").onclick = async () => { if (running || !STEPS[stepIdx]) return; running = true; $("#nextStep").disabled = true;
+  try { await STEPS[stepIdx].run(); } finally { stepIdx++; running = false; setStepLabel(); } };
+window.demo = {next: () => $("#nextStep").click(), step: async () => { if (!STEPS[stepIdx]) return; running = true; try { await STEPS[stepIdx].run(); } finally { stepIdx++; running = false; setStepLabel(); } },
+  tab, caption: (title, sub) => { const c = $("#caption"); if (!title) { c.hidden = true; return; } c.innerHTML = (sub ? `<small>${esc(sub)}</small>` : "") + esc(title); c.hidden = false; },
+  reset: init, get idx(){ return stepIdx; }, E: () => E};
+init();
+})();
+</script>

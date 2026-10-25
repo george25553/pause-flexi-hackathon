@@ -1,0 +1,83 @@
+{
+  "version": "pause-models-2026.10.25-r1",
+  "data": "100% synthetic. Generator in ml/train.py (seed 7).",
+  "payment_risk": {
+    "test_rows": 10000,
+    "scam_rate": 0.0504,
+    "roc_auc": 0.9741,
+    "pr_auc": 0.8348,
+    "thresholds": {
+      "nudge": {
+        "threshold": 0.3,
+        "precision": 0.772,
+        "recall": 0.768,
+        "legit_payments_flagged_pct": 1.2
+      },
+      "cool_off": {
+        "threshold": 0.6,
+        "precision": 0.884,
+        "recall": 0.619,
+        "legit_payments_flagged_pct": 0.43
+      },
+      "bank_review": {
+        "threshold": 0.85,
+        "precision": 0.961,
+        "recall": 0.49,
+        "legit_payments_flagged_pct": 0.11
+      }
+    }
+  },
+  "fairness_by_age_band": {
+    "18-25": {
+      "legit_payments": 2416,
+      "fpr_any_friction_pct": 0.83,
+      "fpr_bank_review_pct": 0.083
+    },
+    "26-40": {
+      "legit_payments": 3714,
+      "fpr_any_friction_pct": 1.18,
+      "fpr_bank_review_pct": 0.108
+    },
+    "41-60": {
+      "legit_payments": 2394,
+      "fpr_any_friction_pct": 1.46,
+      "fpr_bank_review_pct": 0.125
+    },
+    "60+": {
+      "legit_payments": 972,
+      "fpr_any_friction_pct": 1.54,
+      "fpr_bank_review_pct": 0.103
+    }
+  },
+  "fairness_summary": {
+    "max_min_ratio_any_friction": 1.86,
+    "rule": "flag for review if any age band carries > 1.5x the friction rate of another"
+  },
+  "excluded_inputs": [
+    "age",
+    "gender",
+    "ethnicity",
+    "address / district",
+    "nationality",
+    "income level"
+  ],
+  "reference_text_holdout_accuracy": 1.0,
+  "coefficients": {
+    "amount_vs_usual": 2.798,
+    "new_payee": 1.691,
+    "to_individual": 1.894,
+    "international": 1.561,
+    "night_time": 1.013,
+    "scam_language": 2.255,
+    "call_in_progress": 0.758,
+    "new_device": 1.922,
+    "young_payee_account": 2.54,
+    "velocity": 4.038,
+    "share_of_balance": 0.284
+  },
+  "limitations": [
+    "Synthetic typologies; must be re-trained and validated on bank data before use",
+    "Base rate in training (5%) is far above real-world fraud rate; thresholds need recalibration",
+    "Reference-text model covers EN/KA templates only"
+  ]
+}
